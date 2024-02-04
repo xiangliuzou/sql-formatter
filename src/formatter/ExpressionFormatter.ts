@@ -83,10 +83,7 @@ export default class ExpressionFormatter {
 
   public format(nodes: AstNode[]): Layout {
     this.nodes = nodes;
-
-    for (this.index = 0; this.index < this.nodes.length; this.index++) {
-      this.formatNode(this.nodes[this.index]);
-    }
+    this.nodes.forEach(node => this.formatNode(node));
     return this.layout;
   }
 
@@ -97,6 +94,8 @@ export default class ExpressionFormatter {
   }
 
   private formatNodeWithoutComments(node: AstNode) {
+    // // eslint-disable-next-line no-console
+    // console.log(node.type);
     switch (node.type) {
       case NodeType.function_call:
         return this.formatFunctionCall(node);
@@ -191,7 +190,6 @@ export default class ExpressionFormatter {
 
   private formatParenthesis(node: ParenthesisNode) {
     const inlineLayout = this.formatInlineExpression(node.children);
-
     if (inlineLayout) {
       this.layout.add(node.openParen);
       this.layout.add(...inlineLayout.getLayoutItems());
@@ -248,13 +246,37 @@ export default class ExpressionFormatter {
   }
 
   private formatClause(node: ClauseNode) {
+    // /* eslint-disable no-console */
+    // if (['SELECT'].includes(node.nameKw.text)) {
+    //   console.log(node);
+    // }
+    // /* eslint-enable no-console */
+    // if (['SELECT', 'GROUP BY', 'ORDER BY'].includes(node.nameKw.text)) {
+    //   const identifierCount: number = node.children
+    //     .map((child: AstNode): number => child.type === 'comma' ? 1 : 0)
+    //     .reduce((a: number, b: number): number => a + b, 0) + 1
+    //   // eslint-disable-next-line no-console
+    //   console.log({ identifierCount })
+    //   if (identifierCount <= this.cfg.onelineIdentityLimit) {
+    //     this.formatClauseInOnelineStyle(node);
+    //   } else {
+    //     this.formatClauseInMultilineStyle(node);
+    //   }
+    //   return;
+    // }
     if (this.isOnelineClause(node)) {
       this.formatClauseInOnelineStyle(node);
+    } else if (this.isSemiIndentedClause(node)) {
+      this.formatClauseInSemiIndentedStyle(node);
     } else if (isTabularStyle(this.cfg)) {
       this.formatClauseInTabularStyle(node);
     } else {
       this.formatClauseInIndentedStyle(node);
     }
+  }
+
+  private isSemiIndentedClause(node: ClauseNode): boolean {
+    return ['WHERE', 'ON'].includes(node.nameKw.text);
   }
 
   private isOnelineClause(node: ClauseNode): boolean {
@@ -273,9 +295,24 @@ export default class ExpressionFormatter {
     this.layout.indentation.decreaseTopLevel();
   }
 
+  private formatClauseInSemiIndentedStyle(node: ClauseNode) {
+    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.SPACE);
+    this.layout.indentation.increaseTopLevel();
+    this.layout = this.formatSubExpression(node.children);
+    this.layout.indentation.decreaseTopLevel();
+  }
+
   private formatClauseInOnelineStyle(node: ClauseNode) {
     this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.SPACE);
-    this.layout = this.formatSubExpression(node.children);
+    this.layout = this.formatInOnelineExpression(node.children);
+  }
+
+  private formatClauseInMultilineStyle(node: ClauseNode) {
+    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.NEWLINE);
+    this.layout.indentation.increaseTopLevel();
+    this.layout.add(WS.INDENT);
+    this.layout = this.formatInMultilineExpression(node.children);
+    this.layout.indentation.decreaseTopLevel();
   }
 
   private formatClauseInTabularStyle(node: ClauseNode) {
@@ -286,7 +323,7 @@ export default class ExpressionFormatter {
   }
 
   private formatSetOperation(node: SetOperationNode) {
-    this.layout.add(WS.NEWLINE, WS.INDENT, this.showKw(node.nameKw), WS.NEWLINE);
+    this.layout.add(WS.NEWLINE, '\n', WS.INDENT, this.showKw(node.nameKw), '\n', WS.NEWLINE);
     this.layout.add(WS.INDENT);
     this.layout = this.formatSubExpression(node.children);
   }
@@ -297,11 +334,7 @@ export default class ExpressionFormatter {
     });
     this.layout.indentation.increaseTopLevel();
 
-    if (isTabularStyle(this.cfg)) {
-      this.layout.add(WS.SPACE);
-    } else {
-      this.layout.add(WS.NEWLINE, WS.INDENT);
-    }
+    this.layout.add(WS.SPACE);
 
     if (node.offset) {
       this.layout = this.formatSubExpression(node.offset);
@@ -445,14 +478,26 @@ export default class ExpressionFormatter {
     }
   }
 
-  private formatSubExpression(nodes: AstNode[]): Layout {
+  private newExpressionFormatter(inline: boolean): ExpressionFormatter {
     return new ExpressionFormatter({
       cfg: this.cfg,
       dialectCfg: this.dialectCfg,
       params: this.params,
       layout: this.layout,
-      inline: this.inline,
-    }).format(nodes);
+      inline: inline,
+    })
+  }
+
+  private formatSubExpression(nodes: AstNode[]): Layout {
+    return this.newExpressionFormatter(this.inline).format(nodes);
+  }
+
+  private formatInOnelineExpression(nodes: AstNode[]): Layout {
+    return this.newExpressionFormatter(true).format(nodes);
+  }
+
+  private formatInMultilineExpression(nodes: AstNode[]): Layout {
+    return this.newExpressionFormatter(false).format(nodes);
   }
 
   private formatInlineExpression(nodes: AstNode[]): Layout | undefined {

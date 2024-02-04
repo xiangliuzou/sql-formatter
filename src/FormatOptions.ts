@@ -26,4 +26,5 @@ export interface FormatOptions {
   newlineBeforeSemicolon: boolean;
   params?: ParamItems | string[];
   paramTypes?: ParamTypes;
+  onelineIdentityLimit: number;
 }

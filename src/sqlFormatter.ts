@@ -24,6 +24,7 @@ const dialectNameMap: Record<keyof typeof allDialects | 'tsql', keyof typeof all
   tsql: 'transactsql', // alias for transactsq
   singlestoredb: 'singlestoredb',
   snowflake: 'snowflake',
+  xiangliu: 'xiangliu',
 };
 
 export const supportedDialects = Object.keys(dialectNameMap);
@@ -50,6 +51,7 @@ const defaultOptions: FormatOptions = {
   linesBetweenQueries: 1,
   denseOperators: false,
   newlineBeforeSemicolon: false,
+  onelineIdentityLimit: 0
 };
 
 /**
